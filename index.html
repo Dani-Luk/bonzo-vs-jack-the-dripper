@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Commented out to enable pinch-to-zoom on mobile: removed maximum-scale=1.0 and user-scalable=no -->
+    <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"> -->
+    <!-- New viewport setting allows users to zoom on mobile devices -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Bonzo vs Jack the Dripper - A binary sequence prediction game powered by TensorFlow.js with GRU and Conv1D neural networks">
+    <meta name="keywords" content="binary prediction, neural network, machine learning, TensorFlow.js, GRU, Conv1D">
+    <meta name="author" content="Dani-Luk">
+    
+    <!-- Open Graph / Facebook / LinkedIn / WhatsApp -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://bonzo-vs-jack-the-dripper.queverything.com/">
+    <meta property="og:title" content="Bonzo ⚖️ Jack the Dripper - Binary Prediction Game">
+    <meta property="og:description" content="Can you act random? For how long ? A playful game about rhythm vs chaos.">
+    <meta property="og:image" content="https://bonzo-vs-jack-the-dripper.queverything.com/assets/images/og_bonzo_vs_jack.png">
+    
+    <!-- Twitter / X -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://bonzo-vs-jack-the-dripper.queverything.com/">
+    <meta property="twitter:title" content="Bonzo ⚖️ Jack the Dripper - Binary Prediction Game">
+    <meta property="twitter:description" content="Can you act random? For how long ? A playful game about rhythm vs chaos.">
+    <meta property="twitter:image" content="https://bonzo-vs-jack-the-dripper.queverything.com/assets/images/og_bonzo_vs_jack.png">
+    
+    <title>Bonzo ⚖️ Jack the Dripper - Binary Prediction Game</title>
+    <link rel="icon" href="favicon.ico">
+    <!-- Preload card images for better caching and faster display -->
+    <link rel="preload" as="image" href="assets/images/red_card_512x768.png">
+    <link rel="preload" as="image" href="assets/images/blue_card_512x768.png">
+    <link rel="preload" as="image" href="assets/images/drum_bonzo_256x256.png">
+    <link rel="preload" as="image" href="assets/images/painbrush_jack_256x256.png">
+
+
+    <!-- TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 5px;
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 6px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
+            color: #764ba2;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+            /* Removed static color - now using .subtitle-theme class for theme-aware coloring */
+            color: #666;
+        }
+
+        /* Theme-aware subtitle color: changes based on user's system theme preference */
+        .subtitle-theme {
+            color: #0068c9 !important; /* Light theme default */
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .subtitle-theme {
+                color: #3994e9 !important; /* Dark theme color */
+            }
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .card-btn {
+            width: 75px;
+            height: 110px;
+            border: 3px solid #ada9a9;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 40px;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            transition: all 0.15s;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            /* Text shadow for better visibility against background images */
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.8), 0 0 6px rgba(255, 255, 255, 0.5);
+        }
+
+        .card-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.3);
+        }
+
+        .card-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        #btn0 {
+            background-image: url('assets/images/red_card_512x768.png');
+            color: rgba(56, 72, 114, 0.95);
+        }
+
+        #btn1 {
+            background-image: url('assets/images/blue_card_512x768.png');
+            color: rgba(221, 70, 79, 0.95);
+        }
+
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 6px 8px;;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .label-text {
+            /* font-size: clamp(0.85rem, 2vw, 1rem); */
+            font-size: clamp(0.7rem, 1.5vw, 0.9rem);
+            color: #555;
+        }
+
+        .reset-btn {
+            padding: 4px 6px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .reset-btn:hover {
+            background: #c0392b;
+        }
+
+        .input-box {
+            width: 100%;
+            /* Changed from height: 80px to min-height: 80px to match output-box behavior */
+            min-height: 80px;
+            padding: 10px;
+            /* Font properties now match output-box exactly for proper alignment */
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            resize: none;
+            word-wrap: break-word;
+            overflow-y: auto;
+        }
+
+        .slider-section {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .slider-label {
+            font-size: clamp(0.8rem, 2vw, 0.95rem);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .slider-label.bold {
+            font-weight: bold;
+        }
+
+        .icon {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .slider {
+            flex: 1;
+            min-width: 150px;
+            max-width: 300px;
+            height: 8px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            outline: none;
+            border-radius: 5px;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border: 2px solid #764ba2;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #fff;
+            border: 2px solid #764ba2;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .output-section {
+            margin: 6px 0;
+            padding: 6px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .output-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: nowrap;
+            gap: 8px;
+        }
+
+        .output-title {
+            /* font-weight: bold; */
+            font-size: clamp(0.8rem, 2.2vw, 1.05rem);
+            color: #333;
+        }
+
+        .output-stats {
+            font-size: clamp(0.8rem, 2vw, 0.95rem);
+            color: #666;
+        }
+
+        .output-box {
+            width: 100%;
+            /* Changed from min-height: 60px to 80px to match input-box height */
+            min-height: 80px;
+            /* Padding matches input-box exactly */
+            padding: 10px;
+            /* Font properties match input-box exactly for proper character alignment */
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: white;
+            word-wrap: break-word;
+            overflow-y: auto;
+            color: #333;
+        }
+
+        .hit {
+            background-color: lightgreen;
+            padding: 0 0px;
+        }
+
+        .miss {
+            background-color: lightcoral;
+            padding: 0 0px;
+        }
+
+        .warmup {
+            color: #999;
+        }
+
+        .pending {
+            color: #bbb;
+        }
+
+        .chart-container {
+            margin: 5px 0;
+            position: relative;
+            height: 240px;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto !important;
+        }
+
+        .ensemble-mix {
+            display: flex;
+            align-items: center;
+            /* Changed from space-between to center - slider centered, labels close to it */
+            justify-content: center;
+            margin-bottom: 10px;
+            gap: 10px;
+            /* Removed flex-wrap: wrap to force all ensemble elements on a single line */
+        }
+
+        .ensemble-mix-label {
+            font-size: clamp(0.85rem, 2vw, 1rem);
+            color: #555;
+        }
+
+        /* Align convPctLabel to the right (before slider) */
+        #convPctLabel {
+            text-align: right;
+        }
+
+        /* Align gruPctLabel to the left (after slider) */
+        #gruPctLabel {
+            text-align: left;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 6px;
+            }
+
+            .card-btn {
+                width: 65px;
+                height: 90px;
+                font-size: 40px;
+            }
+
+            .chart-container {
+                height: 250px;
+            }
+        }
+
+        .reset-btn {
+            font-size: 12px;
+        }
+        .slider-section {
+            flex-wrap: nowrap;
+            gap: 5px; /* Or any smaller value you prefer */
+            margin : 6px 0;
+        }
+        .slider-section span {
+            font-size: clamp(0.85rem, 2.2vw, 1.05rem); /* Increased all values slightly */
+        }        
+
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Bonzo ⚖️ Jack the Dripper</h1>
+            <p class="subtitle-theme"><i>Can you be random? For how long…? </i>😂</p>
+        </div>
+
+        <div class="btn-row">
+            <button id="btn0" class="card-btn" onclick="app.appendBits('0')">0</button>
+            <button id="btn1" class="card-btn" onclick="app.appendBits('1')">1</button>
+        </div>
+
+        <div class="label-row">
+            <span class="label-text" style="margin-top: 5px;">&nbsp;Click cards or type 0/1 (paste is ok 😉)</span>
+            <button class="reset-btn" onclick="app.reset()">Reset</button>
+        </div>
+        <div class="output-section">
+            <textarea id="inputBox" class="input-box" placeholder="Type or paste 0/1 here..."></textarea>
+
+            <div class="slider-section">
+                <span class="slider-label">👉</span>
+                <span class="slider-label" id="drummerLabel">Drummer</span>
+                <img src="assets/images/drum_bonzo_256x256.png"
+                    class="icon" alt="drum" style="margin-bottom: 4px;" onerror="this.style.display='none'">
+                <span class="slider-label" id="userStatsDrummer">N/A yet</span>
+                <span class="slider-label">/</span>
+                <span class="slider-label" id="userStatsArtist">100 - N/A</span>
+                <img src="assets/images/painbrush_jack_256x256.png"
+                    class="icon" alt="palette" onerror="this.style.display='none'">
+                <span class="slider-label" id="artistLabel">Artist</span>
+            </div>
+        </div>
+
+        <!-- Ensemble -->
+        <div class="output-section">
+            <span class="ensemble-mix-label" style="display: block; text-align: center; padding-bottom: 6px;">Ensemble repartition </span>
+            <div class="ensemble-mix">
+                <span class="ensemble-mix-label" id="convPctLabel">Conv1D: 50%</span>
+                <input type="range" id="alphaSlider" class="slider" min="0" max="100" value="50">
+                <span class="ensemble-mix-label" id="gruPctLabel">GRU: 50%</span>
+            </div>
+            <div class="output-header" style="gap:3px;">
+                <span class="output-title">Ensemble prediction:</span>
+                <span class="output-stats">
+                    <span>Drummer </span>
+                    <span id="ensStats">N/A yet / 100 - N/A</span>
+                    <span> Artist</span>
+                </span>
+            </div>
+            <div id="ensOutput" class="output-box"></div>
+        </div>
+
+        <!-- Conv1D -->
+        <div class="output-section">
+            <div class="output-header">
+                <span class="output-title">Conv1D prediction:</span>
+                <span class="output-stats">
+                    <span>Drummer </span>
+                    <span id="convStats">N/A yet / 100 - N/A</span>
+                    <span> Artist</span>
+                </span>
+            </div>
+            <div id="convOutput" class="output-box"></div>
+        </div>
+
+        <!-- GRU -->
+        <div class="output-section">
+            <div class="output-header">
+                <span class="output-title">GRU prediction:</span>
+                <span class="output-stats">
+                    <span>Drummer </span>
+                    <span id="gruStats">N/A yet / 100 - N/A</span>
+                    <span> Artist</span>
+                </span>
+            </div>
+            <div id="gruOutput" class="output-box"></div>
+        </div>
+
+        <!-- Charts -->
+        <div class="chart-container">
+            <canvas id="smaChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="cumChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // TensorFlow.js Model Classes
+        // ==========================================
+
+        class BaseBinaryPredictor {
+            constructor(windowSize = 8, epochsPerUpdate = 3) {
+                this.windowSize = windowSize;
+                this.epochsPerUpdate = epochsPerUpdate;
+                this.history = [];
+                this.model = null;
+                this.isTraining = false;
+            }
+
+            async reset() {
+                this.history = [];
+                if (this.model) {
+                    this.model.dispose();
+                    this.model = null;
+                }
+                await tf.nextFrame(); // Allow cleanup
+                this.model = await this.buildModel();
+            }
+
+            append(bit) {
+                if (bit !== 0 && bit !== 1) {
+                    throw new Error("bit must be 0 or 1");
+                }
+                this.history.push(bit);
+            }
+
+            async buildModel() {
+                throw new Error("buildModel must be implemented by subclass");
+            }
+
+            async predictTrainAt(index) {
+                if (index < this.windowSize) {
+                    return null;
+                }
+
+                if (this.history.length <= index) {
+                    return null;
+                }
+
+                // Prevent concurrent training
+                if (this.isTraining) {
+                    return null;
+                }
+
+                this.isTraining = true;
+
+                try {
+                    // 1) Predict on current window
+                    const window = this.history.slice(index - this.windowSize, index);
+                    if (window.length !== this.windowSize) {
+                        return null;
+                    }
+
+                    const xPred = tf.tensor3d([window.map(v => [v])], [1, this.windowSize, 1]);
+                    const predTensor = this.model.predict(xPred);
+                    const prob = (await predTensor.data())[0];
+
+                    // Clean up tensors
+                    xPred.dispose();
+                    predTensor.dispose();
+
+                    // 2) Build replay buffer (last 16 windows)
+                    const start = Math.max(this.windowSize, index - 16);
+                    const X = [];
+                    const Y = [];
+
+                    for (let i = start; i <= index; i++) {
+                        const w = this.history.slice(i - this.windowSize, i);
+                        X.push(w.map(v => [v]));
+                        Y.push([this.history[i]]);
+                    }
+
+                    if (X.length === 0) {
+                        return prob;
+                    }
+
+                    // 3) Train on buffer
+                    const xTrain = tf.tensor3d(X, [X.length, this.windowSize, 1]);
+                    const yTrain = tf.tensor2d(Y, [Y.length, 1]);
+
+                    await this.model.fit(xTrain, yTrain, {
+                        epochs: this.epochsPerUpdate,
+                        verbose: 0,
+                        shuffle: false,
+                        batchSize: X.length
+                    });
+
+                    // Clean up
+                    xTrain.dispose();
+                    yTrain.dispose();
+
+                    return prob;
+                } finally {
+                    this.isTraining = false;
+                }
+            }
+        }
+
+        class GRUPredictor extends BaseBinaryPredictor {
+            constructor(windowSize = 8, units = 16, epochsPerUpdate = 3) {
+                super(windowSize, epochsPerUpdate);
+                this.units = units;
+            }
+
+            async buildModel() {
+                const model = tf.sequential({
+                    layers: [
+                        tf.layers.gru({
+                            units: this.units,
+                            inputShape: [this.windowSize, 1],
+                            returnSequences: false
+                        }),
+                        tf.layers.dense({
+                            units: 1,
+                            activation: 'sigmoid'
+                        })
+                    ]
+                });
+
+                model.compile({
+                    optimizer: tf.train.adam(0.006),
+                    loss: 'binaryCrossentropy'
+                });
+
+                return model;
+            }
+        }
+
+        class Conv1DPredictor extends BaseBinaryPredictor {
+            constructor(windowSize = 8, filters = 16, kernelSize = 4, epochsPerUpdate = 3) {
+                super(windowSize, epochsPerUpdate);
+                this.filters = filters;
+                this.kernelSize = kernelSize;
+            }
+
+            async buildModel() {
+                const reg = tf.regularizers.l2({ l2: 0.0005 });
+
+                const model = tf.sequential({
+                    layers: [
+                        tf.layers.conv1d({
+                            filters: this.filters,
+                            kernelSize: this.kernelSize,
+                            activation: 'relu',
+                            padding: 'same',
+                            inputShape: [this.windowSize, 1],
+                            kernelRegularizer: reg
+                        }),
+                        tf.layers.flatten(),
+                        tf.layers.dense({
+                            units: 16,
+                            activation: 'relu',
+                            kernelRegularizer: reg
+                        }),
+                        tf.layers.dense({
+                            units: 1,
+                            activation: 'sigmoid',
+                            kernelRegularizer: reg
+                        })
+                    ]
+                });
+
+                model.compile({
+                    optimizer: tf.train.adam(0.006),
+                    loss: 'binaryCrossentropy'
+                });
+
+                return model;
+            }
+        }
+
+        // ==========================================
+        // Stats Helper Functions
+        // ==========================================
+
+        function computeSmaAndCum(correctFlags, windowSize) {
+            const n = correctFlags.length;
+            const sma = new Array(n).fill(NaN);
+            const cum = new Array(n).fill(NaN);
+            let seen = 0;
+            let wins = 0;
+
+            for (let i = 0; i < n; i++) {
+                if (correctFlags[i] === null) {
+                    continue;
+                }
+
+                // SMA over last window evaluated positions
+                const start = Math.max(0, i - windowSize + 1);
+                const chunk = correctFlags.slice(start, i + 1).filter(c => c !== null);
+                sma[i] = chunk.length > 0 ? chunk.reduce((a, b) => a + b, 0) / chunk.length : NaN;
+
+                wins += correctFlags[i];
+                seen++;
+                cum[i] = seen > 0 ? wins / seen : NaN;
+            }
+
+            return { sma, cum };
+        }
+
+        // ==========================================
+        // Main Application
+        // ==========================================
+
+        class App {
+            constructor() {
+                this.windowSize = 8;
+                this.epochsPerUpdate = 2;
+
+                // Models
+                this.gru = null;
+                this.conv = null;
+
+                // Data
+                this.seq = [];
+                this.gruProb = [];
+                this.convProb = [];
+                this.gruCorrect = [];
+                this.convCorrect = [];
+                this.ensCorrect = [];
+
+                // Task queue
+                this.taskQueue = [];
+                this.isProcessing = false;
+
+                // Charts
+                this.smaChart = null;
+                this.cumChart = null;
+
+                this.init();
+            }
+
+            async init() {
+                // Initialize models
+                this.gru = new GRUPredictor(this.windowSize, 16, this.epochsPerUpdate);
+                this.conv = new Conv1DPredictor(this.windowSize, 16, 4, this.epochsPerUpdate);
+
+                this.gru.model = await this.gru.buildModel();
+                this.conv.model = await this.conv.buildModel();
+
+                // Setup input handlers
+                this.setupInputHandlers();
+
+                // Setup alpha slider
+                document.getElementById('alphaSlider').addEventListener('input', () => {
+                    this.recomputeEnsembleColors();
+                });
+
+                // Setup keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    const focused = document.activeElement;
+                    if (focused.tagName === 'INPUT' && focused.type !== 'range') {
+                        return;
+                    }
+                    if (focused.tagName === 'TEXTAREA') {
+                        return;
+                    }
+
+                    if (e.key === '0') {
+                        e.preventDefault();
+                        this.appendBits('0');
+                    } else if (e.key === '1') {
+                        e.preventDefault();
+                        this.appendBits('1');
+                    }
+                });
+
+                // Initialize charts
+                this.initCharts();
+
+                // Start processing loop
+                this.processQueue();
+            }
+
+            setupInputHandlers() {
+                const inputBox = document.getElementById('inputBox');
+
+                inputBox.addEventListener('keydown', (e) => {
+                    // Allow Ctrl+C, Ctrl+A, Ctrl+V for copy/paste operations
+                    if (e.ctrlKey && (e.key === 'c' || e.key === 'a' || e.key === 'v')) {
+                        return;
+                    }
+
+                    // Force cursor to end (but not during copy operations)
+                    if (!e.ctrlKey) {
+                        inputBox.selectionStart = inputBox.value.length;
+                        inputBox.selectionEnd = inputBox.value.length;
+                    }
+
+                    // Only accept 0/1
+                    if (e.key === '0' || e.key === '1') {
+                        e.preventDefault();
+                        this.appendBits(e.key);
+                        return;
+                    }
+
+                    // Block everything else except allowed Ctrl shortcuts
+                    if (!e.ctrlKey || (e.key !== 'c' && e.key !== 'a' && e.key !== 'v')) {
+                        e.preventDefault();
+                    }
+                });
+
+                inputBox.addEventListener('paste', (e) => {
+                    // Allow default paste but filter and append only 0/1 characters
+                    e.preventDefault();
+                    const pasted = e.clipboardData.getData('text');
+                    const cleaned = pasted.replace(/[^01]/g, '');
+                    if (cleaned) {
+                        this.appendBits(cleaned);
+                    }
+                });
+
+                inputBox.addEventListener('click', () => {
+                    setTimeout(() => {
+                        inputBox.selectionStart = inputBox.value.length;
+                        inputBox.selectionEnd = inputBox.value.length;
+                    }, 0);
+                });
+
+                // Input event handler for mobile devices (catches virtual keyboard input)
+                // Mobile keyboards often bypass keydown events, so we need to validate on input
+                inputBox.addEventListener('input', (e) => {
+                    const currentValue = inputBox.value;
+                    const validChars = currentValue.replace(/[^01]/g, '');
+                    
+                    // If invalid characters were entered, filter them out
+                    if (currentValue !== validChars) {
+                        const cursorPos = inputBox.selectionStart;
+                        inputBox.value = validChars;
+                        // Try to maintain cursor position
+                        inputBox.selectionStart = Math.min(cursorPos, validChars.length);
+                        inputBox.selectionEnd = inputBox.selectionStart;
+                    }
+                });
+            }
+
+            appendBits(bits) {
+                if (!bits) return;
+                if (!/^[01]+$/.test(bits)) return;
+
+                // 1) Append to input widget
+                const inputBox = document.getElementById('inputBox');
+                inputBox.value += bits;
+                inputBox.scrollTop = inputBox.scrollHeight;
+
+                // 2) Update canonical buffers
+                for (const ch of bits) {
+                    const bit = ch === '1' ? 1 : 0;
+                    const i = this.seq.length;
+
+                    this.seq.push(bit);
+                    this.gru.append(bit);
+                    this.conv.append(bit);
+                    this.gruProb.push(null);
+                    this.convProb.push(null);
+                    this.gruCorrect.push(null);
+                    this.convCorrect.push(null);
+                    this.ensCorrect.push(null);
+
+                    // Append placeholder
+                    this.outAppendPlaceholder(i);
+
+                    // Enqueue task
+                    this.taskQueue.push(i);
+                }
+            }
+
+            outAppendPlaceholder(i) {
+                const warmup = i < this.windowSize;
+                const ch = warmup ? 'x' : '?';
+                const className = warmup ? 'warmup' : 'pending';
+
+                const outputs = [
+                    document.getElementById('gruOutput'),
+                    document.getElementById('convOutput'),
+                    document.getElementById('ensOutput')
+                ];
+
+                for (const output of outputs) {
+                    const span = document.createElement('span');
+                    span.className = className;
+                    span.textContent = ch;
+                    span.dataset.index = i;
+                    output.appendChild(span);
+                }
+            }
+
+            async processQueue() {
+                if (!this.isProcessing && this.taskQueue.length > 0) {
+                    this.isProcessing = true;
+                    const i = this.taskQueue.shift();
+
+                    if (i >= 0 && i < this.seq.length) {
+                        // Predict and train
+                        const gruP = await this.gru.predictTrainAt(i);
+                        const convP = await this.conv.predictTrainAt(i);
+
+                        // Update results
+                        this.updateResults(i, gruP, convP);
+                    }
+
+                    this.isProcessing = false;
+                }
+
+                requestAnimationFrame(() => this.processQueue());
+            }
+
+            updateResults(i, gruP, convP) {
+                if (i >= this.seq.length) return;
+
+                const actual = this.seq[i];
+                let changed = false;
+
+                // Update GRU
+                if (gruP !== null) {
+                    this.gruProb[i] = gruP;
+                    const pred = gruP >= 0.5 ? 1 : 0;
+                    const corr = pred === actual ? 1 : 0;
+                    this.gruCorrect[i] = corr;
+                    this.outSetChar('gruOutput', i, String(pred), corr ? 'hit' : 'miss');
+                    changed = true;
+                }
+
+                // Update Conv
+                if (convP !== null) {
+                    this.convProb[i] = convP;
+                    const pred = convP >= 0.5 ? 1 : 0;
+                    const corr = pred === actual ? 1 : 0;
+                    this.convCorrect[i] = corr;
+                    this.outSetChar('convOutput', i, String(pred), corr ? 'hit' : 'miss');
+                    changed = true;
+                }
+
+                // Update Ensemble
+                this.updateEnsembleAt(i);
+
+                if (changed) {
+                    this.refreshStatsAndPlot();
+                }
+            }
+
+            outSetChar(outputId, index, ch, className) {
+                const output = document.getElementById(outputId);
+                const span = output.querySelector(`[data-index="${index}"]`);
+                if (span) {
+                    span.textContent = ch;
+                    span.className = className;
+                }
+            }
+
+            updateEnsembleAt(i) {
+                if (i < this.windowSize) return;
+
+                const gp = this.gruProb[i];
+                const cp = this.convProb[i];
+
+                if (gp === null || cp === null) return;
+
+                const alpha = parseFloat(document.getElementById('alphaSlider').value) / 100.0;
+                const p = alpha * gp + (1.0 - alpha) * cp;
+                const pred = p >= 0.5 ? 1 : 0;
+                const corr = pred === this.seq[i] ? 1 : 0;
+                this.ensCorrect[i] = corr;
+                this.outSetChar('ensOutput', i, String(pred), corr ? 'hit' : 'miss');
+            }
+
+            recomputeEnsembleColors() {
+                const alpha = parseInt(document.getElementById('alphaSlider').value);
+                document.getElementById('convPctLabel').textContent = `Conv1D: ${100 - alpha}%`;
+                document.getElementById('gruPctLabel').textContent = `GRU: ${alpha}%`;
+
+                for (let i = 0; i < this.seq.length; i++) {
+                    this.updateEnsembleAt(i);
+                }
+
+                this.refreshStatsAndPlot();
+            }
+
+            computeAcc(flags) {
+                const vals = flags.filter(v => v !== null);
+                if (vals.length === 0) return null;
+                return vals.reduce((a, b) => a + b, 0) / vals.length;
+            }
+
+            refreshStatsAndPlot() {
+                const aGru = this.computeAcc(this.gruCorrect);
+                const aConv = this.computeAcc(this.convCorrect);
+                const aEns = this.computeAcc(this.ensCorrect);
+
+                const setDistrib = (id, acc) => {
+                    const elem = document.getElementById(id);
+                    if (acc === null) {
+                        elem.textContent = 'N/A yet / 100 - N/A';
+                    } else {
+                        const drummer = Math.round(acc * 100);
+                        const hotMess = 100 - drummer;
+                        elem.textContent = `${drummer}% / ${hotMess}%`;
+                    }
+                };
+
+                setDistrib('gruStats', aGru);
+                setDistrib('convStats', aConv);
+                setDistrib('ensStats', aEns);
+                // Commented out old single-span update, replaced with split-span update below
+                // setDistrib('userStats', aEns);
+
+                // New function to update split userStats spans and apply bold styling to percentages
+                const userStatsDrummer = document.getElementById('userStatsDrummer');
+                const userStatsArtist = document.getElementById('userStatsArtist');
+                if (aEns === null) {
+                    userStatsDrummer.textContent = 'N/A yet';
+                    userStatsArtist.textContent = '100 - N/A';
+                    userStatsDrummer.classList.remove('bold');
+                    userStatsArtist.classList.remove('bold');
+                } else {
+                    const drummer = Math.round(aEns * 100);
+                    const hotMess = 100 - drummer;
+                    userStatsDrummer.textContent = `${drummer}%`;
+                    userStatsArtist.textContent = `${hotMess}%`;
+                    
+                    // Apply bold styling to percentages based on ensemble accuracy
+                    if (drummer >= 55) {
+                        userStatsDrummer.classList.add('bold');
+                        userStatsArtist.classList.remove('bold');
+                    } else if (drummer <= 45) {
+                        userStatsDrummer.classList.remove('bold');
+                        userStatsArtist.classList.add('bold');
+                    } else {
+                        userStatsDrummer.classList.remove('bold');
+                        userStatsArtist.classList.remove('bold');
+                    }
+                }
+
+                // Update label font weight
+                const drummerLabel = document.getElementById('drummerLabel');
+                const artistLabel = document.getElementById('artistLabel');
+
+                if (aEns !== null) {
+                    const ensPct = Math.round(aEns * 100);
+                    if (ensPct >= 55) {
+                        drummerLabel.classList.add('bold');
+                        artistLabel.classList.remove('bold');
+                    } else if (ensPct <= 45) {
+                        drummerLabel.classList.remove('bold');
+                        artistLabel.classList.add('bold');
+                    } else {
+                        drummerLabel.classList.remove('bold');
+                        artistLabel.classList.remove('bold');
+                    }
+                } else {
+                    drummerLabel.classList.remove('bold');
+                    artistLabel.classList.remove('bold');
+                }
+
+                // Update charts
+                this.updateCharts();
+            }
+
+            initCharts() {
+                const commonOptions = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            onClick: (e, legendItem, legend) => {
+                                const index = legendItem.datasetIndex;
+                                const ci = legend.chart;
+                                const meta = ci.getDatasetMeta(index);
+                                meta.hidden = meta.hidden === null ? !ci.data.datasets[index].hidden : null;
+                                ci.update();
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: false,
+                                text: 'Steps'
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 1,
+                            /* Added fixed tick marks at 0, 0.25, 0.5, 0.75, 1.0 with 2 decimal places */
+                            ticks: {
+                                stepSize: 0.2,
+                                callback: function(value) {
+                                    return value.toFixed(1);
+                                }
+                            },
+                            title: {
+                                display: true
+                            }
+                        }
+                    }
+                };
+
+                // SMA Chart
+                const smaCtx = document.getElementById('smaChart').getContext('2d');
+                this.smaChart = new Chart(smaCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: 'Conv1D',
+                                data: [],
+                                borderColor: 'rgb(255, 99, 132)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                tension: 0.1,
+                                /* Changed line width and point radius to 1.5 for finer appearance */
+                                borderWidth: 1.2,
+                                pointRadius: 1.0
+                            },
+                            {
+                                label: 'GRU',
+                                data: [],
+                                borderColor: 'rgb(54, 162, 235)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                                tension: 0.1,
+                                /* Changed line width and point radius to 1.5 for finer appearance */
+                                borderWidth: 1.2,
+                                pointRadius: 1.0
+                            },
+                            {
+                                label: 'Ensemble',
+                                data: [],
+                                borderColor: 'rgb(75, 192, 192)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                                tension: 0.1,
+                                /* Changed line width and point radius to 1.5 for finer appearance */
+                                borderWidth: 1.5,
+                                pointRadius: 1.3
+                            }
+                        ]
+                    },
+                    options: {
+                        ...commonOptions,
+                        scales: {
+                            ...commonOptions.scales,
+                            y: {
+                                ...commonOptions.scales.y,
+                                title: {
+                                    display: true,
+                                    text: 'SMA Accuracy'
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Cumulative Chart
+                const cumCtx = document.getElementById('cumChart').getContext('2d');
+                this.cumChart = new Chart(cumCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: 'Conv1D',
+                                data: [],
+                                borderColor: 'rgb(255, 99, 132)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                tension: 0.1,
+                                /* Changed line width and point radius to 1.5 for finer appearance */
+                                borderWidth: 1.2,
+                                pointRadius: 1.0
+                            },
+                            {
+                                label: 'GRU',
+                                data: [],
+                                borderColor: 'rgb(54, 162, 235)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                                tension: 0.1,
+                                /* Changed line width and point radius to 1.5 for finer appearance */
+                                borderWidth: 1.2,
+                                pointRadius: 1.0
+                            },
+                            {
+                                label: 'Ensemble',
+                                data: [],
+                                borderColor: 'rgb(75, 192, 192)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                                tension: 0.1,
+                                /* Changed line width and point radius to 1.5 for finer appearance */
+                                borderWidth: 1.5,
+                                pointRadius: 1.3
+                            }
+                        ]
+                    },
+                    options: {
+                        ...commonOptions,
+                        scales: {
+                            ...commonOptions.scales,
+                            y: {
+                                ...commonOptions.scales.y,
+                                title: {
+                                    display: true,
+                                    text: 'Cumulative Accuracy'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            updateCharts() {
+                const n = this.seq.length;
+                const x = Array.from({ length: n }, (_, i) => i);
+
+                const gruStats = computeSmaAndCum(this.gruCorrect, this.windowSize);
+                const convStats = computeSmaAndCum(this.convCorrect, this.windowSize);
+                const ensStats = computeSmaAndCum(this.ensCorrect, this.windowSize);
+
+                // Update SMA chart
+                this.smaChart.data.labels = x;
+                this.smaChart.data.datasets[0].data = convStats.sma;
+                this.smaChart.data.datasets[1].data = gruStats.sma;
+                this.smaChart.data.datasets[2].data = ensStats.sma;
+                this.smaChart.update('none');
+
+                // Update Cumulative chart
+                this.cumChart.data.labels = x;
+                this.cumChart.data.datasets[0].data = convStats.cum;
+                this.cumChart.data.datasets[1].data = gruStats.cum;
+                this.cumChart.data.datasets[2].data = ensStats.cum;
+                this.cumChart.update('none');
+            }
+
+            async reset() {
+                if (!confirm('Reset the sequence and reinitialize models?')) {
+                    return;
+                }
+
+                // Use location.reload() for hard reset (releases TensorFlow.js memory)
+                location.reload();
+            }
+        }
+
+        // ==========================================
+        // Start Application
+        // ==========================================
+
+        let app;
+
+        window.addEventListener('load', async () => {
+            // Set TensorFlow.js backend
+            await tf.ready();
+            console.log('TensorFlow.js backend:', tf.getBackend());
+
+            app = new App();
+        });
+    </script>
+</body>
+</html>
