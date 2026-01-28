@@ -26,18 +26,22 @@
     
     <title>Bonzo ⚖️ Jack the Dripper - Binary Prediction Game</title>
     <link rel="icon" href="favicon.ico">
+    
+    <!-- Preconnect to CDN for faster script loading -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    
     <!-- Preload card images for better caching and faster display -->
-    <link rel="preload" as="image" href="assets/images/red_card_512x768.png">
+    <!-- <link rel="preload" as="image" href="assets/images/red_card_512x768.png">
     <link rel="preload" as="image" href="assets/images/blue_card_512x768.png">
     <link rel="preload" as="image" href="assets/images/drum_bonzo_256x256.png">
-    <link rel="preload" as="image" href="assets/images/painbrush_jack_256x256.png">
+    <link rel="preload" as="image" href="assets/images/painbrush_jack_256x256.png"> -->
 
 
-    <!-- TensorFlow.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+    <!-- TensorFlow.js - defer allows parallel download without blocking HTML parsing -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Chart.js - defer allows parallel download without blocking HTML parsing -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <style>
         * {
@@ -484,8 +488,7 @@
 
         <!-- Version footer -->
         <div class="version-footer">
-            <!-- v1.0.0 | <a href="https://github.com/Dani-Luk/bonzo-vs-jack-the-dripper" target="_blank" rel="noopener">GitHub</a> -->
-            v1.0.21
+            v1.0.23
         </div>
     </div>
 
@@ -617,6 +620,18 @@
                     optimizer: tf.train.adam(0.006),
                     loss: 'binaryCrossentropy'
                 });
+
+                // Warm-up: predict + one tiny train step
+                tf.tidy(() => {
+                const x = tf.zeros([1, this.windowSize, 1]);
+                const y = tf.zeros([1, 1]);
+                model.predict(x);                 // compiles inference kernels
+                // trainOnBatch compiles training kernels too (much closer to fit)
+                model.trainOnBatch(x, y);
+                });
+
+                // Give the browser a moment to finish backend work (esp. WebGL)
+                await tf.nextFrame();
 
                 return model;
             }
