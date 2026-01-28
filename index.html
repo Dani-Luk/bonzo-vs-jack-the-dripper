@@ -200,14 +200,13 @@
             display: none;
         } */
 
-        @media (max-width: 768px) {
-            /* @supports (-webkit-touch-callout: none) { */ */
-                /* .input-box { */
-                .output-box {
+       /* @media (max-width: 768px) {
+            @supports (-webkit-touch-callout: none) { 
+                .input-box {
                     padding-right: 14px;
                 }
             }
-            /* } */
+        } */
 
         .slider-section {
             display: flex;
@@ -311,6 +310,13 @@
             overflow-y: auto;
             color: #333;
         }
+        @media (max-width: 768px) {
+            /* @supports (-webkit-touch-callout: none) { */ */
+                .output-box {
+                    padding-right: 15px;
+                }
+            }
+            /* } */
 
         .hit {
             background-color: lightgreen;
@@ -503,7 +509,7 @@
 
         <!-- Version footer -->
         <div class="version-footer">
-            v1.0.27
+            v1.0.28
         </div>
     </div>
 
