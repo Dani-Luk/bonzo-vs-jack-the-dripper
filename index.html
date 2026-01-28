@@ -574,11 +574,13 @@
                     return null;
                 }
 
-                // Prevent concurrent training
-                if (this.isTraining) {
+                // Prevent concurrent training or reset in progress
+                if (this.isTraining || !this.model) {
                     return null;
                 }
 
+                // Capture model reference to prevent race condition during reset
+                const model = this.model;
                 this.isTraining = true;
 
                 try {
@@ -589,7 +591,7 @@
                     }
 
                     const xPred = tf.tensor3d([window.map(v => [v])], [1, this.windowSize, 1]);
-                    const predTensor = this.model.predict(xPred);
+                    const predTensor = model.predict(xPred);
                     const prob = (await predTensor.data())[0];
 
                     // Clean up tensors
@@ -618,7 +620,14 @@
                     // Let UI breathe before training (important on mobile)
                     await tf.nextFrame();
 
-                    await this.model.fit(xTrain, yTrain, {
+                    // Guard against model disposal during reset
+                    if (!model || model.isDisposed) {
+                        xTrain.dispose();
+                        yTrain.dispose();
+                        return prob;
+                    }
+
+                    await model.fit(xTrain, yTrain, {
                         epochs: this.epochsPerUpdate,
                         verbose: 0,
                         shuffle: false,
@@ -633,6 +642,12 @@
                     yTrain.dispose();
 
                     return prob;
+                } catch (err) {
+                    // Handle model disposal during reset (e.g., "LayersVariable is already disposed")
+                    if (err.message && err.message.includes('disposed')) {
+                        return null;
+                    }
+                    throw err;
                 } finally {
                     this.isTraining = false;
                 }
@@ -665,14 +680,16 @@
                     loss: 'binaryCrossentropy'
                 });
 
-                // Warm-up: predict + one tiny train step
-                tf.tidy(() => {
-                const x = tf.zeros([1, this.windowSize, 1]);
-                const y = tf.zeros([1, 1]);
-                model.predict(x);                 // compiles inference kernels
-                // trainOnBatch compiles training kernels too (much closer to fit)
-                model.trainOnBatch(x, y);
-                });
+                // Warm-up: predict + train step (properly awaited with manual disposal)
+                {
+                    const x = tf.zeros([1, this.windowSize, 1]);
+                    const y = tf.zeros([1, 1]);
+                    const p = model.predict(x); // compiles inference kernels
+                    p.dispose();                          
+                    await model.trainOnBatch(x, y);   // compiles training kernels (must await)
+                    x.dispose();
+                    y.dispose();
+                }
 
                 // Give the browser a moment to finish backend work (esp. WebGL)
                 await tf.nextFrame();
@@ -720,6 +737,20 @@
                     loss: 'binaryCrossentropy'
                 });
 
+                // Warm-up: predict + train step (properly awaited with manual disposal)
+                {
+                    const x = tf.zeros([1, this.windowSize, 1]);
+                    const y = tf.zeros([1, 1]);
+                    const p = model.predict(x); // compiles inference kernels
+                    p.dispose();          
+                    await model.trainOnBatch(x, y);   // compiles training kernels (must await)
+                    x.dispose();
+                    y.dispose();
+                }
+
+                // Give the browser a moment to finish backend work (esp. WebGL)
+                await tf.nextFrame();
+
                 return model;
             }
         }
@@ -759,6 +790,7 @@
 
         class App {
             constructor() {
+                this.resetVersion = 0
                 this.windowSize = 8;
                 this.epochsPerUpdate = 2;
 
@@ -849,7 +881,8 @@
             setupInputHandlers() {
                 const inputBox = document.getElementById('inputBox');
                 // Track previous value to detect new characters added via mobile keyboard
-                let previousValue = '';
+                // Store as instance property so it can be reset during resetSoft()
+                this.previousInputValue = '';
 
                 inputBox.addEventListener('keydown', (e) => {
                     // Handle F5 reload with confirmation (when focus is in textarea)
@@ -918,19 +951,19 @@
                     
                     // Detect and process new valid characters added (for mobile keyboard support)
                     // This is critical for mobile devices where keydown events may not fire properly
-                    if (validChars.length > previousValue.length) {
+                    if (validChars.length > this.previousInputValue.length) {
                         // New characters were added - extract only the new ones
-                        const newChars = validChars.substring(previousValue.length);
+                        const newChars = validChars.substring(this.previousInputValue.length);
                         if (newChars && /^[01]+$/.test(newChars)) {
                             // Reset the inputBox to previous value before calling appendBits
                             // because appendBits will add the characters itself
-                            inputBox.value = previousValue;
+                            inputBox.value = this.previousInputValue;
                             this.appendBits(newChars);
                         }
                     }
                     
                     // Update tracked value for next comparison
-                    previousValue = inputBox.value;
+                    this.previousInputValue = inputBox.value;
                 });
             }
 
@@ -985,25 +1018,55 @@
                 }
             }
 
+            // async processQueue() {
+            //     if (!this.isProcessing && this.taskQueue.length > 0) {
+            //         this.isProcessing = true;
+            //         const i = this.taskQueue.shift();
+
+            //         if (i >= 0 && i < this.seq.length) {
+            //             // Predict and train
+            //             const gruP = await this.gru.predictTrainAt(i);
+            //             const convP = await this.conv.predictTrainAt(i);
+
+            //             // Update results
+            //             this.updateResults(i, gruP, convP);
+            //         }
+
+            //         this.isProcessing = false;
+            //     }
+
+            //     requestAnimationFrame(() => this.processQueue());
+            // }
+
             async processQueue() {
                 if (!this.isProcessing && this.taskQueue.length > 0) {
                     this.isProcessing = true;
+
+                    const myVer = this.resetVersion;
                     const i = this.taskQueue.shift();
 
-                    if (i >= 0 && i < this.seq.length) {
-                        // Predict and train
+                    // dacă s-a dat reset între timp, ieși fără efecte
+                    if (myVer !== this.resetVersion) { this.isProcessing = false; }
+                    else if (i >= 0 && i < this.seq.length) {
+
                         const gruP = await this.gru.predictTrainAt(i);
-                        const convP = await this.conv.predictTrainAt(i);
 
-                        // Update results
-                        this.updateResults(i, gruP, convP);
-                    }
+                        // checkpoint între modele
+                        if (myVer !== this.resetVersion) { this.isProcessing = false; }
+                        else {
+                            const convP = await this.conv.predictTrainAt(i);
 
-                    this.isProcessing = false;
+                            if (myVer === this.resetVersion) {
+                            this.updateResults(i, gruP, convP);
+                            }
+                        }
+                        }
+
+                this.isProcessing = false;
                 }
 
                 requestAnimationFrame(() => this.processQueue());
-            }
+                }
 
             updateResults(i, gruP, convP) {
                 if (i >= this.seq.length) return;
@@ -1329,13 +1392,87 @@
                 this.cumChart.update('none');
             }
 
+            // async reset() {
+            //     if (!confirm('Reset the sequence and reinitialize models?')) {
+            //         return;
+            //     }
+
+            //     // Use location.reload() for hard reset (releases TensorFlow.js memory)
+            //     location.reload();
+            // }
+
             async reset() {
                 if (!confirm('Reset the sequence and reinitialize models?')) {
                     return;
                 }
 
-                // Use location.reload() for hard reset (releases TensorFlow.js memory)
-                location.reload();
+                this.resetSoft();
+            }
+
+            async resetSoft() {
+                // Increment resetVersion to invalidate any in-flight processQueue operations
+                this.resetVersion++;
+                
+                // Clear task queue and reset processing flag
+                this.taskQueue.length = 0;
+                this.isProcessing = false;
+                
+                // Reset all data arrays - fixed: use [] instead of ""
+                this.seq = [];
+                this.gruProb = [];
+                this.convProb = [];
+                this.gruCorrect = [];
+                this.convCorrect = [];
+                this.ensCorrect = [];
+                
+                // Reset models (dispose old models and rebuild new ones)
+                await this.gru.reset();
+                await this.conv.reset();
+                
+                // Clear UI elements
+                this.clearUI();
+            }
+
+            clearUI() {
+                // Clear input box and reset mobile input handler state
+                const inputBox = document.getElementById('inputBox');
+                inputBox.value = '';
+                this.previousInputValue = '';  // Reset mobile keyboard tracking
+                
+                // Clear output displays
+                document.getElementById('gruOutput').innerHTML = '';
+                document.getElementById('convOutput').innerHTML = '';
+                document.getElementById('ensOutput').innerHTML = '';
+                
+                // Reset stats displays
+                document.getElementById('gruStats').textContent = 'N/A yet / 100 - N/A';
+                document.getElementById('convStats').textContent = 'N/A yet / 100 - N/A';
+                document.getElementById('ensStats').textContent = 'N/A yet / 100 - N/A';
+                
+                // Reset split userStats spans
+                const userStatsDrummer = document.getElementById('userStatsDrummer');
+                const userStatsArtist = document.getElementById('userStatsArtist');
+                userStatsDrummer.textContent = 'N/A yet';
+                userStatsArtist.textContent = '100 - N/A';
+                userStatsDrummer.classList.remove('bold');
+                userStatsArtist.classList.remove('bold');
+                
+                // Reset label styling
+                document.getElementById('drummerLabel').classList.remove('bold');
+                document.getElementById('artistLabel').classList.remove('bold');
+                
+                // Clear charts
+                this.smaChart.data.labels = [];
+                this.smaChart.data.datasets[0].data = [];
+                this.smaChart.data.datasets[1].data = [];
+                this.smaChart.data.datasets[2].data = [];
+                this.smaChart.update('none');
+                
+                this.cumChart.data.labels = [];
+                this.cumChart.data.datasets[0].data = [];
+                this.cumChart.data.datasets[1].data = [];
+                this.cumChart.data.datasets[2].data = [];
+                this.cumChart.update('none');
             }
         }
 
@@ -1346,23 +1483,50 @@
         let app;
 
         // window.addEventListener('load', async () => {
+        // window.addEventListener('DOMContentLoaded', async () => {
+        //     // Set TensorFlow.js backend - optimize for mobile performance
+        //     await tf.ready();
+            
+        //     // Try to use WebGL backend for better performance on mobile devices
+        //     // WebGL leverages GPU acceleration which is much faster than CPU
+        //     try {
+        //         await tf.setBackend('webgl');
+        //         console.log('TensorFlow.js backend set to: webgl (GPU accelerated)');
+        //     } catch (e) {
+        //         console.warn('WebGL backend failed, using default:', tf.getBackend(), e);
+        //     }
+            
+        //     console.log('TensorFlow.js active backend:', tf.getBackend());
+
+        //     app = new App();
+        // });
+
         window.addEventListener('DOMContentLoaded', async () => {
-            // Set TensorFlow.js backend - optimize for mobile performance
             await tf.ready();
-            
-            // Try to use WebGL backend for better performance on mobile devices
-            // WebGL leverages GPU acceleration which is much faster than CPU
+
+            let backend = 'cpu';
+            let webglOk = false;
+
             try {
-                await tf.setBackend('webgl');
-                console.log('TensorFlow.js backend set to: webgl (GPU accelerated)');
+            await tf.setBackend('webgl');
+
+            // PROBE: run a tiny op that forces backend init
+            tf.tidy(() => tf.zeros([1]).add(1));
+
+            webglOk = (tf.getBackend() === 'webgl');
             } catch (e) {
-                console.warn('WebGL backend failed, using default:', tf.getBackend(), e);
+            console.warn('WebGL unusable, fallback to CPU:', e);
             }
-            
+
+            if (!webglOk) {
+            await tf.setBackend('cpu');
+            }
+
             console.log('TensorFlow.js active backend:', tf.getBackend());
 
             app = new App();
         });
+
     </script>
 </body>
 </html>
