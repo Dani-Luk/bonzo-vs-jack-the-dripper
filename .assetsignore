@@ -1,0 +1,13 @@
+**/.git
+**/.github
+**/.vscode
+**/node_modules
+**/.DS_Store
+**/*.map
+**/wrangler.toml
+**/wrangler.json
+**/wrangler.jsonc
+**/.wrangler
+**/*.code-workspace
+README.md
+*.py
