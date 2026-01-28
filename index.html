@@ -717,6 +717,16 @@
                         return;
                     }
                     if (focused.tagName === 'TEXTAREA') {
+                        // F5 refresh is handled in the inputBox keydown handler below
+                        return;
+                    }
+
+                    // Handle F5 reload with confirmation (when focus is NOT in textarea)
+                    if (e.key === 'F5') {
+                        e.preventDefault();
+                        if (confirm('Reload page and reset the sequence?')) {
+                            location.reload();
+                        }
                         return;
                     }
 
@@ -738,8 +748,19 @@
 
             setupInputHandlers() {
                 const inputBox = document.getElementById('inputBox');
+                // Track previous value to detect new characters added via mobile keyboard
+                let previousValue = '';
 
                 inputBox.addEventListener('keydown', (e) => {
+                    // Handle F5 reload with confirmation (when focus is in textarea)
+                    if (e.key === 'F5') {
+                        e.preventDefault();
+                        if (confirm('Reload page and reset the sequence?')) {
+                            location.reload();
+                        }
+                        return;
+                    }
+
                     // Allow Ctrl+C, Ctrl+A, Ctrl+V for copy/paste operations
                     if (e.ctrlKey && (e.key === 'c' || e.key === 'a' || e.key === 'v')) {
                         return;
@@ -758,7 +779,7 @@
                         return;
                     }
 
-                    // Block everything else except allowed Ctrl shortcuts
+                    // Block everything else except allowed Ctrl shortcuts and F5
                     if (!e.ctrlKey || (e.key !== 'c' && e.key !== 'a' && e.key !== 'v')) {
                         e.preventDefault();
                     }
@@ -782,7 +803,7 @@
                 });
 
                 // Input event handler for mobile devices (catches virtual keyboard input)
-                // Mobile keyboards often bypass keydown events, so we need to validate on input
+                // Mobile keyboards often bypass keydown events, so we process input changes here
                 inputBox.addEventListener('input', (e) => {
                     const currentValue = inputBox.value;
                     const validChars = currentValue.replace(/[^01]/g, '');
@@ -791,10 +812,25 @@
                     if (currentValue !== validChars) {
                         const cursorPos = inputBox.selectionStart;
                         inputBox.value = validChars;
-                        // Try to maintain cursor position
                         inputBox.selectionStart = Math.min(cursorPos, validChars.length);
                         inputBox.selectionEnd = inputBox.selectionStart;
                     }
+                    
+                    // Detect and process new valid characters added (for mobile keyboard support)
+                    // This is critical for mobile devices where keydown events may not fire properly
+                    if (validChars.length > previousValue.length) {
+                        // New characters were added - extract only the new ones
+                        const newChars = validChars.substring(previousValue.length);
+                        if (newChars && /^[01]+$/.test(newChars)) {
+                            // Reset the inputBox to previous value before calling appendBits
+                            // because appendBits will add the characters itself
+                            inputBox.value = previousValue;
+                            this.appendBits(newChars);
+                        }
+                    }
+                    
+                    // Update tracked value for next comparison
+                    previousValue = inputBox.value;
                 });
             }
 
