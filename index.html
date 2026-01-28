@@ -488,7 +488,7 @@
 
         <!-- Version footer -->
         <div class="version-footer">
-            v1.0.23
+            v1.0.25
         </div>
     </div>
 
@@ -577,12 +577,18 @@
                     const xTrain = tf.tensor3d(X, [X.length, this.windowSize, 1]);
                     const yTrain = tf.tensor2d(Y, [Y.length, 1]);
 
+                    // Let UI breathe before training (important on mobile)
+                    await tf.nextFrame();
+
                     await this.model.fit(xTrain, yTrain, {
                         epochs: this.epochsPerUpdate,
                         verbose: 0,
                         shuffle: false,
                         batchSize: X.length
                     });
+
+                    // Let rendering / input catch up after training
+                    await tf.nextFrame();
 
                     // Clean up
                     xTrain.dispose();
