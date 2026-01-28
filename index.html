@@ -43,6 +43,12 @@
     <!-- Chart.js - defer allows parallel download without blocking HTML parsing -->
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+    <script>
+        if (/Android/i.test(navigator.userAgent)) {
+        document.documentElement.classList.add('android');
+        }
+    </script>
+
     <style>
         * {
             box-sizing: border-box;
@@ -311,7 +317,7 @@
             color: #333;
         }
 
-        @media (max-width: 600px) {  body { background: red !important; } }
+        /* @media (max-width: 600px) {  body { background: red !important; } } */
 
         /* @media (max-width: 600px) {
             .output-box {
@@ -514,7 +520,7 @@
 
         <!-- Version footer -->
         <div class="version-footer">
-            v1.0.30
+            v1.0.31
         </div>
     </div>
 
