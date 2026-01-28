@@ -310,13 +310,14 @@
             overflow-y: auto;
             color: #333;
         }
-        @media (max-width: 768px) {
-            /* @supports (-webkit-touch-callout: none) { */ */
-                .output-box {
-                    padding-right: 15px;
+
+        @media (max-width: 600px) {  body { background: red !important; } }
+
+        @media (max-width: 600px) {
+            .output-box {
+                    padding-right: 17px !important;
                 }
             }
-            /* } */
 
         .hit {
             background-color: lightgreen;
@@ -509,7 +510,7 @@
 
         <!-- Version footer -->
         <div class="version-footer">
-            v1.0.28
+            v1.0.29
         </div>
     </div>
 
