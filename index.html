@@ -180,6 +180,14 @@
             resize: none;
             word-wrap: break-word;
             overflow-y: auto;
+            /* Hide scrollbar while keeping scroll functionality - fixes character alignment on mobile */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .input-box::-webkit-scrollbar {
+            display: none;
         }
 
         .slider-section {
@@ -365,7 +373,25 @@
         }
         .slider-section span {
             font-size: clamp(0.85rem, 2.2vw, 1.05rem); /* Increased all values slightly */
-        }        
+        }
+
+        /* Version footer styling */
+        .version-footer {
+            text-align: center;
+            padding: 15px 10px 10px 10px;
+            font-size: 0.75rem;
+            color: #999;
+            font-family: 'Courier New', monospace;
+        }
+
+        .version-footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .version-footer a:hover {
+            text-decoration: underline;
+        }
 
     </style>
 </head>
@@ -454,6 +480,12 @@
         </div>
         <div class="chart-container">
             <canvas id="cumChart"></canvas>
+        </div>
+
+        <!-- Version footer -->
+        <div class="version-footer">
+            <!-- v1.0.0 | <a href="https://github.com/Dani-Luk/bonzo-vs-jack-the-dripper" target="_blank" rel="noopener">GitHub</a> -->
+            v1.0.10 
         </div>
     </div>
 
@@ -717,6 +749,16 @@
                         return;
                     }
                     if (focused.tagName === 'TEXTAREA') {
+                        // F5 refresh is handled in the inputBox keydown handler below
+                        return;
+                    }
+
+                    // Handle F5 reload with confirmation (when focus is NOT in textarea)
+                    if (e.key === 'F5') {
+                        e.preventDefault();
+                        if (confirm('Reload page and reset the sequence?')) {
+                            location.reload();
+                        }
                         return;
                     }
 
@@ -738,8 +780,19 @@
 
             setupInputHandlers() {
                 const inputBox = document.getElementById('inputBox');
+                // Track previous value to detect new characters added via mobile keyboard
+                let previousValue = '';
 
                 inputBox.addEventListener('keydown', (e) => {
+                    // Handle F5 reload with confirmation (when focus is in textarea)
+                    if (e.key === 'F5') {
+                        e.preventDefault();
+                        if (confirm('Reload page and reset the sequence?')) {
+                            location.reload();
+                        }
+                        return;
+                    }
+
                     // Allow Ctrl+C, Ctrl+A, Ctrl+V for copy/paste operations
                     if (e.ctrlKey && (e.key === 'c' || e.key === 'a' || e.key === 'v')) {
                         return;
@@ -758,7 +811,7 @@
                         return;
                     }
 
-                    // Block everything else except allowed Ctrl shortcuts
+                    // Block everything else except allowed Ctrl shortcuts and F5
                     if (!e.ctrlKey || (e.key !== 'c' && e.key !== 'a' && e.key !== 'v')) {
                         e.preventDefault();
                     }
@@ -782,7 +835,7 @@
                 });
 
                 // Input event handler for mobile devices (catches virtual keyboard input)
-                // Mobile keyboards often bypass keydown events, so we need to validate on input
+                // Mobile keyboards often bypass keydown events, so we process input changes here
                 inputBox.addEventListener('input', (e) => {
                     const currentValue = inputBox.value;
                     const validChars = currentValue.replace(/[^01]/g, '');
@@ -791,10 +844,25 @@
                     if (currentValue !== validChars) {
                         const cursorPos = inputBox.selectionStart;
                         inputBox.value = validChars;
-                        // Try to maintain cursor position
                         inputBox.selectionStart = Math.min(cursorPos, validChars.length);
                         inputBox.selectionEnd = inputBox.selectionStart;
                     }
+                    
+                    // Detect and process new valid characters added (for mobile keyboard support)
+                    // This is critical for mobile devices where keydown events may not fire properly
+                    if (validChars.length > previousValue.length) {
+                        // New characters were added - extract only the new ones
+                        const newChars = validChars.substring(previousValue.length);
+                        if (newChars && /^[01]+$/.test(newChars)) {
+                            // Reset the inputBox to previous value before calling appendBits
+                            // because appendBits will add the characters itself
+                            inputBox.value = previousValue;
+                            this.appendBits(newChars);
+                        }
+                    }
+                    
+                    // Update tracked value for next comparison
+                    previousValue = inputBox.value;
                 });
             }
 
