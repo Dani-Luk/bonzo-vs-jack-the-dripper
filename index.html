@@ -485,7 +485,7 @@
         <!-- Version footer -->
         <div class="version-footer">
             <!-- v1.0.0 | <a href="https://github.com/Dani-Luk/bonzo-vs-jack-the-dripper" target="_blank" rel="noopener">GitHub</a> -->
-            v1.0.10 
+            v1.0.21
         </div>
     </div>
 
@@ -702,6 +702,15 @@
             constructor() {
                 this.windowSize = 8;
                 this.epochsPerUpdate = 2;
+
+                const cores = navigator.hardwareConcurrency || 4;
+                const mem = navigator.deviceMemory || 4;
+                const isMobileish = Math.min(screen.width, screen.height) < 700;
+
+                const mobileMode = isMobileish || cores <= 4 || mem <= 4;
+                this.windowSize = mobileMode ? 6 : 8;
+                this.epochsPerUpdate = mobileMode ? 1 : 2;
+                console.log(`App initialized in ${mobileMode ? 'mobile' : 'desktop'} mode: windowSize=${this.windowSize}, epochsPerUpdate=${this.epochsPerUpdate}`);
 
                 // Models
                 this.gru = null;
@@ -1277,10 +1286,21 @@
 
         let app;
 
-        window.addEventListener('load', async () => {
-            // Set TensorFlow.js backend
+        // window.addEventListener('load', async () => {
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Set TensorFlow.js backend - optimize for mobile performance
             await tf.ready();
-            console.log('TensorFlow.js backend:', tf.getBackend());
+            
+            // Try to use WebGL backend for better performance on mobile devices
+            // WebGL leverages GPU acceleration which is much faster than CPU
+            try {
+                await tf.setBackend('webgl');
+                console.log('TensorFlow.js backend set to: webgl (GPU accelerated)');
+            } catch (e) {
+                console.warn('WebGL backend failed, using default:', tf.getBackend(), e);
+            }
+            
+            console.log('TensorFlow.js active backend:', tf.getBackend());
 
             app = new App();
         });
