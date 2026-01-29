@@ -37,10 +37,10 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     
     <!-- Preload card images for better caching and faster display -->
-    <!-- <link rel="preload" as="image" href="assets/images/red_card_512x768.png">
-    <link rel="preload" as="image" href="assets/images/blue_card_512x768.png">
-    <link rel="preload" as="image" href="assets/images/drum_bonzo_256x256.png">
-    <link rel="preload" as="image" href="assets/images/painbrush_jack_256x256.png"> -->
+    <!-- <link rel="preload" as="image" href="assets/images/red_card_150x220.png">
+    <link rel="preload" as="image" href="assets/images/blue_card_150x220.png">
+    <link rel="preload" as="image" href="assets/images/drum_bonzo_128x128.png">
+    <link rel="preload" as="image" href="assets/images/painbrush_jack_128x128.png"> -->
 
 
     <!-- TensorFlow.js - defer allows parallel download without blocking HTML parsing -->
@@ -143,12 +143,12 @@
         }
 
         #btn0 {
-            background-image: url('assets/images/red_card_512x768.png');
+            background-image: url('assets/images/red_card_150x220.png');
             color: rgba(56, 72, 114, 0.95);
         }
 
         #btn1 {
-            background-image: url('assets/images/blue_card_512x768.png');
+            background-image: url('assets/images/blue_card_150x220.png');
             color: rgba(221, 70, 79, 0.95);
         }
 
@@ -460,12 +460,12 @@
             <div class="slider-section">
                 <span class="slider-label">👉</span>
                 <span class="slider-label" id="drummerLabel">Drummer</span>
-                <img src="assets/images/drum_bonzo_256x256.png"
+                <img src="assets/images/drum_bonzo_128x128.png"
                     class="icon" alt="drum" style="margin-bottom: 4px;" onerror="this.style.display='none'">
                 <span class="slider-label" id="userStatsDrummer">N/A yet</span>
                 <span class="slider-label">/</span>
                 <span class="slider-label" id="userStatsArtist">100 - N/A</span>
-                <img src="assets/images/painbrush_jack_256x256.png"
+                <img src="assets/images/painbrush_jack_128x128.png"
                     class="icon" alt="palette" onerror="this.style.display='none'">
                 <span class="slider-label" id="artistLabel">Artist</span>
             </div>
@@ -526,7 +526,7 @@
 
         <!-- Version footer -->
         <div class="version-footer">
-            v1.0.34
+            v1.0.35
         </div>
     </div>
 

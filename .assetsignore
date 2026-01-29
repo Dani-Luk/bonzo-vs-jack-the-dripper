@@ -11,3 +11,4 @@
 **/*.code-workspace
 README.md
 *.py
+**/*.zip
