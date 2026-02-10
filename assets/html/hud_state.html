@@ -1,0 +1,90 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DND HUD</title>
+<!-- bump: 2026-02-07T15:00+02:00 -->
+<style>
+:root{--bg:#0b1020;--card:rgba(17,24,39,.55);--bd:rgba(148,163,184,.35);--fg:#e5e7eb;--muted:#94a3b8;--cur:rgba(30,58,138,.3);--good:#34d399;--warn:#fbbf24;--bad:#fb7185}
+*{box-sizing:border-box}
+body{margin:0;padding:12px;font:14px/1.35 system-ui;background:radial-gradient(1100px 640px at 20% 0%,#1d4ed8 0%,transparent 58%),radial-gradient(1100px 640px at 90% 10%,#7c3aed 0%,transparent 55%),var(--bg);color:var(--fg)}
+.wrap{max-width:1100px;margin:auto;display:grid;gap:10px}
+header,.card{border:1px solid var(--bd);background:var(--card);border-radius:8px;padding:10px}
+.top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.meta{font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.col{display:grid;gap:10px}
+.card h3{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+ul{margin:0;padding-left:18px}
+.log{border:1px solid var(--bd);background:rgba(0,0,0,.18);border-radius:6px;padding:8px;max-height:clamp(100px,12vh,500px);overflow:auto}
+.list{display:grid;gap:6px}
+.row{display:grid;grid-template-columns:34px 1fr;gap:8px;border:1px solid var(--bd);background:rgba(17,24,39,.25);border-radius:6px;padding:8px;align-items:start}
+.current{background:var(--cur)}
+.avatar{width:34px;height:34px;border:1px solid var(--bd);border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);font-size:18px}
+.who{display:grid;gap:6px}
+.nameLine{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.name{font-weight:700}
+.cls{font-size:12px;color:var(--muted)}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{font-size:12px;border:1px solid var(--bd);background:rgba(255,255,255,.04);padding:3px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:6px}
+.pill.status{background:rgba(0,0,0,.2)}
+.pill.good{border-color:rgba(52,211,153,.6);color:var(--good)}
+.pill.bad{border-color:rgba(251,113,133,.6);color:var(--bad)}
+.tone-good{color:var(--good)}
+.tone-bad{color:var(--bad)}
+#autoroll{margin-top:6px}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.items{font-size:12px;color:var(--muted)}
+.items b{color:var(--fg)}
+</style>
+</head>
+<body data-autoscroll="true">
+<div class="wrap">
+  <header>
+    <div class="top">
+      <div><b id="title"></b></div>
+      <div id="round" class="meta"></div>
+    </div>
+    <div><b>Objective:</b> <span id="objective"></span></div>
+    <div class="meta"><b>Place:</b> <span id="place"></span></div>
+    <div class="meta" id="summary"></div>
+  </header>
+  <div class="grid">
+    <div class="col">
+      <section class="card">
+        <h3>Mission progress</h3>
+        <div class="log"><ul id="mission"></ul></div>
+      </section>
+      <section class="card">
+        <h3>Where we are now</h3>
+        <div><b>Now:</b> <span id="where"></span></div>
+        <div><b>Immediate danger:</b> <span id="danger"></span></div>
+      </section>
+      <section class="card" id="enemiesCard">
+        <h3>Enemies</h3>
+        <div class="list" id="enemies"></div>
+      </section>
+      <section class="card">
+        <h3>Action history</h3>
+        <div class="log"><ul id="actions"></ul></div>
+      </section>
+    </div>
+    <div class="col">
+      <section class="card">
+        <h3>Party</h3>
+        <div class="list" id="party"></div>
+        <div class="pills" id="autoroll"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script id="gameState" type="application/json">{"meta":{"campaign":"D&D Forest","round":8,"currentPlayer":"Kael","autoRoll":"On"},"place":{"name":"Forest road","traits":["night","rain"],"summary":"A muddy track between dense firs. Low visibility, cold wind, wet ground."},"objective":{"text":"Find the missing caravan"},"scene":{"whereNow":"At the fork in the road, wheel tracks fading in the mud.","immediateDanger":"wolves + shadow wisp engaged"},"history":{"missionProgress":["Found wheel tracks -> following them into the forest","Heard howls nearby (distance closing)","Tracks fade near a fork; rain erasing detail","Spotted torn cloth on a thorn bush (caravan color?)","Found fresh hoofprints crossing the track (not from the caravan)","Noted a faint lantern-glow deeper in the trees (possible campsite)","Heard a single metal clink in the dark (gear or trap)"],"actions":["Thorin: hit Wolf A (d20=15, d8=7)","Elara: Magic Bolt hit (d20=17, d6=5)","Mira: sneak hit (d20 total=22) - damage pending","Wolf A: staggered, backing off (wounded)","Wolf B: circling toward Elara","Shadow Wisp: chilling fog spreads at ankle level","Kael: next to act..."]},"enemies":[{"name":"Wolf A","type":"Beast","avatar":"🐺","hp":{"cur":6,"max":13},"ac":13,"status":["wounded"]},{"name":"Wolf B","type":"Beast","avatar":"🐺","hp":{"cur":13,"max":13},"ac":13,"status":["aggressive"]},{"name":"Shadow Wisp","type":"Spirit","avatar":"🌫️","hp":{"cur":9,"max":9},"ac":12,"status":["drifting"]}],"party":[{"name":"Thorin","class":"Fighter","avatar":"🛡️","hp":{"cur":9,"max":12},"ac":16,"gold":7,"spells":null,"status":["soaked"],"items":[{"name":"torch","qty":1},{"name":"potion","qty":0}]},{"name":"Elara","class":"Wizard","avatar":"🧙‍♀️","hp":{"cur":6,"max":8},"ac":12,"gold":0,"spells":{"cur":0,"max":2},"status":["focused"],"items":[{"name":"rope","qty":1}]},{"name":"Mira","class":"Rogue","avatar":"🗡️","hp":{"cur":4,"max":9},"ac":14,"gold":12,"spells":null,"status":["alert"],"items":[{"name":"lockpick","qty":1},{"name":"dagger","qty":2}]},{"name":"Kael","class":"Cleric","avatar":"✨","hp":{"cur":8,"max":10},"ac":15,"gold":5,"spells":{"cur":2,"max":2},"status":["blessed"],"items":[{"name":"holy water","qty":1}]},{"name":"Pip","class":"Bard","avatar":"🎻","hp":{"cur":2,"max":7},"ac":13,"gold":9,"spells":null,"status":["blessed"],"items":[{"name":"songbook","qty":1},{"name":"potion","qty":1}]}]}</script>
+
+<script>
+(()=>{const $=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>\"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m])),st=JSON.parse($("gameState").textContent),hp=h=>{const s=h?.hp ?? h ?? {};const r=s.max?s.cur/s.max:0;return{txt:`HP ${s.cur ?? 0}/${s.max ?? 0}`,color:r<=.4?"var(--bad)":r<1?"var(--warn)":"var(--good)"}},status=s=>s?.length?`<div class="pill status">Status: ${s.map(esc).join(", ")}</div>`:"",items=p=>p.items?.length?`<div class="items"><b>Items:</b> ${p.items.map(i=>`${esc(i.name)}(${i.qty})`).join(", ")}</div>`:"",mkRow=(a,b,c,d,e,f="")=>`<div class="row${a?" current":""}"><div class="avatar">${esc(b||"")}</div><div class="who"><div class="nameLine"><div class="name">${esc(c)}</div><div class="cls">(${esc(d)})</div></div><div class="pills">${e}</div>${f}</div></div>`;$("title").textContent=`${st.meta.campaign} - Player ${st.meta.currentPlayer}`;$("round").textContent=`Round ${st.meta.round}`;document.title=`${st.meta.campaign} - Round ${st.meta.round} - Player ${st.meta.currentPlayer}`;$("objective").textContent=st.objective.text;$("place").textContent=[st.place.name,...(st.place.traits||[])].join(" | ");$("summary").textContent=st.place.summary;$("where").textContent=st.scene.whereNow;$("danger").textContent=st.scene.immediateDanger;$("mission").innerHTML=(st.history.missionProgress||[]).map(v=>`<li>${esc(v)}</li>`).join("");$("actions").innerHTML=(st.history.actions||[]).map(v=>`<li>${esc(v)}</li>`).join("");const enemies=st.enemies||[];$("enemiesCard").hidden=!enemies.length;$("enemies").innerHTML=enemies.map(e=>{const h=hp(e);return mkRow(false,e.avatar,e.name,e.type,`<div class="pill"><span class="dot" style="background:${h.color}"></span>${h.txt}</div><div class="pill">AC ${e.ac}</div>${status(e.status)}`)}).join("");$("party").innerHTML=(st.party||[]).map(p=>{const h=hp(p);return mkRow(p.name===st.meta.currentPlayer,p.avatar,p.name,p.class,`<div class="pill"><span class="dot" style="background:${h.color}"></span>${h.txt}</div><div class="pill">AC ${p.ac}</div><div class="pill">Gold ${p.gold}</div>${p.spells?`<div class="pill">Spells ${p.spells.cur}/${p.spells.max}</div>`:""}${status(p.status)}`,items(p))}).join("");const autoRoll=String(st.meta?.autoRoll||"Off");const autoOn=autoRoll.toLowerCase()==="on";const autoRollEl=$("autoroll");if(autoRollEl){autoRollEl.innerHTML=`<div class="pill"><b>Auto-rolling:</b> <span class="${autoOn?"tone-good":"tone-bad"}">${esc(autoOn?"On":"Off")}</span></div>`}const sc=()=>document.querySelectorAll(".log").forEach(el=>{el.scrollTop=el.scrollHeight});if(document.body?.dataset?.autoscroll!=="false"){if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",()=>requestAnimationFrame(sc),{once:true})}else{requestAnimationFrame(sc)}window.addEventListener("load",()=>requestAnimationFrame(sc),{once:true})}})();
+</script>
+</body>
+</html>
